@@ -16,9 +16,9 @@
     ],
     "require": {},
     "require-dev": {
-        "friendsofphp/php-cs-fixer": "^v3.2.1",
-        "phpunit/phpunit": "^9.5",
+        "friendsofphp/php-cs-fixer": "~v3.2",
+        "phpunit/phpunit": "~9.5",
         "roave/security-advisories": "dev-latest",
-        "dominikb/composer-license-checker": "^2.2"
+        "dominikb/composer-license-checker": "~2.2"
     }
 }
