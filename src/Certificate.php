@@ -79,8 +79,8 @@ class Certificate implements IX509Certificate
         }
 
         // Look for the YubiKey PIV firmware extension (present in both F9 and 9A-9E certs)
-        if (isset($parsed['extensions']) && isset ($parsed['extensions'][YubikeyCertificate::YUBICO_OID_FIRMWARE_VERSION])) {
-            return new YubikeyCertificate($certificate);
+        if (isset($parsed['extensions']) && isset ($parsed['extensions'][YubikeyAttestationCertificate::YUBICO_OID_FIRMWARE_VERSION])) {
+            return new YubikeyAttestationCertificate($certificate);
         }
 
         return new YubicoCaCertificate(IX509Certificate::TYPE_ROOT_CA);

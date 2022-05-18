@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of the Open Physical project.
+ * This file is part of the Open Physical project.  Copyright 2022, Open Physical Corporation.
  *
  * This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
  * Public License as published by the Free Software Foundation, version 3 of the License.
@@ -13,12 +13,14 @@ declare(strict_types=1);
 
 namespace OpenPhysical\Attestation;
 
+use DomainException;
 use InvalidArgumentException;
 use OpenPhysical\Attestation\Exception\CertificateParsingException;
+use OpenPhysical\Attestation\Exception\CertificateValidationException;
 use OpenPhysical\PivChecker\Errors;
-use OpenPhysical\PivChecker\Exception\CertificateValidationException;
+use OpenSSLCertificate;
 
-class YubikeyCertificate extends PivCertificate implements IX509Certificate
+class YubikeyAttestationCertificate extends PivAttestationCertificate implements IX509Certificate
 {
     public const YUBICO_OID_PIV_ROOT = '1.3.6.1.4.1.41482.3';
     public const YUBICO_OID_FIRMWARE_VERSION = '1.3.6.1.4.1.41482.3.3';
@@ -42,10 +44,11 @@ class YubikeyCertificate extends PivCertificate implements IX509Certificate
     public const YUBICO_FORM_FACTOR_USB_C_NANO = 0x04;
     public const YUBICO_FORM_FACTOR_USB_C_LIGHTNING = 0x05;
 
-    public const VALID_SLOTS = ['9a', '9c', '9d', '9e', 'f9'];
+    public const YUBICO_KEY_REFERENCES = [0xF9 => 'Attestation Key'];
 
     /**
-     * @var \OpenSSLCertificate|string
+     * OpenSSL certificate representing the loaded attestation certificate.
+     * @var OpenSSLCertificate
      */
     protected $certificate;
 
@@ -56,11 +59,13 @@ class YubikeyCertificate extends PivCertificate implements IX509Certificate
     protected ?int $form_factor = null;
 
     /**
-     * @param $certificate \OpenSSLCertificate|string Input certificate
+     * Parse a YubiKey attestation certificate, extracting YubiKey extensions.
+     * @param $certificate OpenSSLCertificate
      *
-     * @throws CertificateValidationException
+     * @throws CertificateValidationException|CertificateParsingException
+     * @noinspection PhpMissingParentConstructorInspection
      */
-    public function __construct($certificate)
+    public function __construct(OpenSSLCertificate $certificate)
     {
         $parsed = openssl_x509_parse($certificate);
         if (!($parsed) || !isset($parsed['extensions'])) {
@@ -71,7 +76,7 @@ class YubikeyCertificate extends PivCertificate implements IX509Certificate
         $extensions = $parsed['extensions'];
         $found_yubikey_extension = false;
         foreach ($extensions as $key => $value) {
-            if (0 === strpos($key, self::YUBICO_OID_PIV_ROOT)) {
+            if (str_starts_with($key, self::YUBICO_OID_PIV_ROOT)) {
                 $found_yubikey_extension = true;
                 break;
             }
@@ -88,7 +93,7 @@ class YubikeyCertificate extends PivCertificate implements IX509Certificate
             $bytes = str_split($firmware_version);
 
             // Convert the binary encoding to decimal encoding
-            array_walk($bytes, static function (&$value, $key) {
+            array_walk($bytes, static function (&$value) {
                 $value = ord($value);
             });
 
@@ -140,20 +145,24 @@ class YubikeyCertificate extends PivCertificate implements IX509Certificate
             $this->isFipsValidated = true;
         }
 
-        // Slot
+        // Key Reference
         if (isset($parsed['subject'], $parsed['subject']['CN'])) {
             $cn_words = explode(' ', $parsed['subject']['CN']);
             $word_count = count($cn_words);
 
             // We are looking for a slot number as the last word
             if ($word_count > 1 && 2 === strlen($cn_words[$word_count - 1]) && 'Attestation' === $cn_words[$word_count - 2]) {
-                $this->slot = $cn_words[$word_count - 1];
+                $key_reference = hexdec($cn_words[$word_count - 1]);
+                if (!isset(PIV::PIV_KEY_REFERENCES[$key_reference])) {
+                    throw new DomainException("Invalid key reference specified.");
+                }
+                $this->keyReference = $key_reference;
                 $this->certificateType = IX509Certificate::TYPE_END_CERTIFICATE;
             } else {
                 // F9 slots don't have a slot in the CN
                 if ('Yubico PIV Attestation' === $parsed['subject']['CN']) {
                     $this->certificateType = IX509Certificate::TYPE_INTERMEDIATE_CA;
-                    $this->slot = 'f9';
+                    $this->keyReference = 0xF9;
                 } else {
                     throw new CertificateParsingException(Errors::ERROR_CERTIFICATE_UNKNOWN_TYPE, Errors::ERRORNO_CERTIFICATE_UNKNOWN_TYPE);
                 }
@@ -165,8 +174,8 @@ class YubikeyCertificate extends PivCertificate implements IX509Certificate
     {
         $ret = 'YubiKey Attestation Cert';
 
-        if (isset($this->slot)) {
-            $ret .= ' for slot '.$this->slot;
+        if (isset($this->keyReference)) {
+            $ret .= ' for slot '.$this->keyReference;
         }
 
         if (false === $this->isFipsValidated) {
@@ -211,38 +220,23 @@ class YubikeyCertificate extends PivCertificate implements IX509Certificate
         // Pin policy
         if (isset($this->pin_policy)) {
             $ret .= ', PIN Policy: ';
-            switch ($this->pin_policy) {
-                case self::YUBICO_PIN_POLICY_NEVER:
-                    $ret .= 'never required';
-                    break;
-                case self::YUBICO_PIN_POLICY_ONCE_PER_SESSION:
-                    $ret .= 'required once per session';
-                    break;
-                case self::YUBICO_PIN_POLICY_ALWAYS:
-                    $ret .= 'always required';
-                    break;
-                default:
-                    $ret .= 'unknown or invalid';
-                    break;
-            }
+            $ret .= match ($this->pin_policy) {
+                self::YUBICO_PIN_POLICY_NEVER => 'never required',
+                self::YUBICO_PIN_POLICY_ONCE_PER_SESSION => 'required once per session',
+                self::YUBICO_PIN_POLICY_ALWAYS => 'always required',
+                default => 'unknown or invalid',
+            };
         }
 
         // Touch policy
         if (isset($this->touch_policy)) {
             $ret .= ', Touch Policy: ';
-            switch ($this->touch_policy) {
-                case self::YUBICO_TOUCH_POLICY_NEVER:
-                    $ret .= 'never required';
-                    break;
-                case self::YUBICO_TOUCH_POLICY_ALWAYS:
-                    $ret .= 'always required';
-                    break;
-                case self::YUBICO_TOUCH_POLICY_CACHE_15s:
-                    $ret .= 'cached for 15 seconds after touch';
-                    break;
-                default:
-                    $ret .= 'unknown or invalid';
-            }
+            $ret .= match ($this->touch_policy) {
+                self::YUBICO_TOUCH_POLICY_NEVER => 'never required',
+                self::YUBICO_TOUCH_POLICY_ALWAYS => 'always required',
+                self::YUBICO_TOUCH_POLICY_CACHE_15s => 'cached for 15 seconds after touch',
+                default => 'unknown or invalid',
+            };
         }
 
         return $ret;
@@ -260,9 +254,9 @@ class YubikeyCertificate extends PivCertificate implements IX509Certificate
     }
 
     /**
-     * @return \OpenSSLCertificate|string
+     * @return OpenSSLCertificate
      */
-    public function getCertificate()
+    public function getCertificate(): OpenSSLCertificate
     {
         return $this->certificate;
     }

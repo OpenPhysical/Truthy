@@ -14,7 +14,9 @@
             "email": "admin@mistial.dev"
         }
     ],
-    "require": {},
+    "require": {
+      "ext-openssl": "*"
+    },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "~v3.2",
         "phpunit/phpunit": "~9.5",
