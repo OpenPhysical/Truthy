@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace OpenPhysical\Attestation;
 
+use InvalidArgumentException;
 use OpenSSLCertificate;
 
 /**
@@ -64,7 +65,7 @@ class PivAttestationCertificate extends Certificate implements IX509Certificate
     public function __construct(OpenSSLCertificate $certificate, int $keyReference, bool $isFipsValidated = false)
     {
         if (!isset(PIV::PIV_KEY_REFERENCES[$keyReference])) {
-            throw new \InvalidArgumentException("Invalid key reference specified.");
+            throw new InvalidArgumentException("Invalid key reference specified.");
         }
         $this->certificate = $certificate;
         $this->keyReference = $keyReference;

@@ -18,12 +18,14 @@ namespace OpenPhysical\Attestation;
 use OpenPhysical\Attestation\CA\YubicoCaCertificate;
 use OpenPhysical\Attestation\Errors;
 use OpenPhysical\Attestation\Exception\CertificateParsingException;
+use OpenPhysical\PivChecker\Exception\CertificateValidationException;
+use OpenSSLCertificate;
 use Symfony\Component\Filesystem\Exception\FileNotFoundException;
 
 class Certificate implements IX509Certificate
 {
     /**
-     * @var \OpenSSLCertificate|string
+     * @var OpenSSLCertificate|string
      */
     protected $certificate;
 
@@ -44,14 +46,14 @@ class Certificate implements IX509Certificate
     }
 
     /**
-     * @return resource|\OpenSSLCertificate
+     * @return resource|OpenSSLCertificate
      */
     public static function loadCertificateFromStream($stream)
     {
         if (!$stream) {
             throw new FileNotFoundException(Errors::ERROR_MISSING_CERTIFICATE, Errors::ERRORNO_MISSING_CERTIFICATE);
         }
-        $cert_data = stream_get_contents ($stream);
+        $cert_data = stream_get_contents($stream);
         if (!$cert_data) {
             throw new FileNotFoundException(Errors::ERROR_MISSING_CERTIFICATE, Errors::ERRORNO_MISSING_CERTIFICATE);
         }
@@ -65,7 +67,7 @@ class Certificate implements IX509Certificate
 
     /**
      * @throws CertificateParsingException
-     * @throws \OpenPhysical\PivChecker\Exception\CertificateValidationException
+     * @throws CertificateValidationException
      *
      * @var mixed
      */
@@ -79,7 +81,7 @@ class Certificate implements IX509Certificate
         }
 
         // Look for the YubiKey PIV firmware extension (present in both F9 and 9A-9E certs)
-        if (isset($parsed['extensions']) && isset ($parsed['extensions'][YubikeyAttestationCertificate::YUBICO_OID_FIRMWARE_VERSION])) {
+        if (isset($parsed['extensions']) && isset($parsed['extensions'][YubikeyAttestationCertificate::YUBICO_OID_FIRMWARE_VERSION])) {
             return new YubikeyAttestationCertificate($certificate);
         }
 
@@ -91,7 +93,7 @@ class Certificate implements IX509Certificate
      *
      * @throws CertificateParsingException
      *
-     * @var \OpenSSLCertificate|string|array
+     * @var OpenSSLCertificate|string|array
      */
     public static function parseCertificate($certificate): array
     {

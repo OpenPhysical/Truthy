@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace OpenPhysical\Attestation\Exception;
 
-class CertificateValidationException extends \Exception
+use Exception;
+
+class CertificateValidationException extends Exception
 {
 }

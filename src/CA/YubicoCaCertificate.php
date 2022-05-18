@@ -90,7 +90,7 @@ class YubicoCaCertificate extends CaCertificate implements ICaCertificate
         $this->type = $id;
 
         $ca_file = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . self::$yubikey_sca_certfiles[$id];
-        $fp = fopen ($ca_file, 'r');
+        $fp = fopen($ca_file, 'r');
         $this->loadCertificateFromStream($fp);
     }
 
