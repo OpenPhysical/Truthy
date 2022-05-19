@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of the Open Physical project.  Copyright 2022, Open Physical Corporation.
+ * This file is part of the Open Physical project.
  *
  * This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
  * Public License as published by the Free Software Foundation, version 3 of the License.
@@ -8,12 +8,25 @@
  * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
  * details.
+ *
+ * PHP Version 8
+ * @author Mistial Developer <admin@mistial.dev>
+ * @category OpenPhysical
+ * @link https://github.com/OpenPhysical/Truthy
+ * @license https://www.gnu.org/licenses/agpl-3.0.en.html GNU Affero General Public License, Version 3
+ * @package Truthy
  */
 declare(strict_types=1);
 
 namespace OpenPhysical\Attestation;
+/**
+ *
+ */
 class PIV
 {
+    /**
+     *
+     */
     public const PIV_AUTHENTICATION_DATA_REFERENCES = [
         0x00 => 'Global PIN',
         0x80 => 'PIV Card Application PIN',
@@ -23,6 +36,9 @@ class PIV
         0x98 => 'Pairing Code',
     ];
 
+    /**
+     *
+     */
     public const PIV_KEY_REFERENCES = [
         0x04 => 'PIV Secure Messaging Key',
         0x9A => 'PIV Authentication Key',

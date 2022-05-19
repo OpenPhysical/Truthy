@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of the Open Physical project.  Copyright 2022, Open Physical Corporation.
+ * This file is part of the Open Physical project.
  *
  * This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
  * Public License as published by the Free Software Foundation, version 3 of the License.
@@ -8,6 +8,13 @@
  * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
  * details.
+ *
+ * PHP Version 8
+ * @author Mistial Developer <admin@mistial.dev>
+ * @category OpenPhysical
+ * @link https://github.com/OpenPhysical/Truthy
+ * @license https://www.gnu.org/licenses/agpl-3.0.en.html GNU Affero General Public License, Version 3
+ * @package Truthy
  */
 declare(strict_types=1);
 
@@ -20,34 +27,103 @@ use OpenPhysical\Attestation\Exception\CertificateParsingException;
 use OpenPhysical\Attestation\Exception\CertificateValidationException;
 use OpenSSLCertificate;
 
+/**
+ *
+ */
 class YubikeyAttestationCertificate extends PivAttestationCertificate implements IX509Certificate
 {
+    /**
+     *
+     */
     public const YUBICO_OID_PIV_ROOT = '1.3.6.1.4.1.41482.3';
+    /**
+     *
+     */
     public const YUBICO_OID_FIRMWARE_VERSION = '1.3.6.1.4.1.41482.3.3';
+    /**
+     *
+     */
     public const YUBICO_OID_SERIAL_NUMBER = '1.3.6.1.4.1.41482.3.7';
+    /**
+     *
+     */
     public const YUBICO_OID_PIN_TOUCH_POLICY = '1.3.6.1.4.1.41482.3.8';
+    /**
+     *
+     */
     public const YUBICO_OID_FORM_FACTOR = '1.3.6.1.4.1.41482.3.9';
+    /**
+     *
+     */
     public const YUBICO_OID_FIPS_VALIDATED = '1.3.6.1.4.1.41482.3.10';
 
+    /**
+     *
+     */
     public const YUBICO_PIN_POLICY_NEVER = 0x01;
+    /**
+     *
+     */
     public const YUBICO_PIN_POLICY_ONCE_PER_SESSION = 0x02;
+    /**
+     *
+     */
     public const YUBICO_PIN_POLICY_ALWAYS = 0x03;
 
+    /**
+     *
+     */
     public const YUBICO_TOUCH_POLICY_NEVER = 0x01;
+    /**
+     *
+     */
     public const YUBICO_TOUCH_POLICY_ALWAYS = 0x02;
+    /**
+     *
+     */
     public const YUBICO_TOUCH_POLICY_CACHE_15s = 0x03;
 
+    /**
+     *
+     */
     public const YUBICO_FORM_FACTOR_UNDEFINED = 0x00;
+    /**
+     *
+     */
     public const YUBICO_FORM_FACTOR_USB_A_KEYCHAIN = 0x01;
+    /**
+     *
+     */
     public const YUBICO_FORM_FACTOR_USB_A_NANO = 0x02;
+    /**
+     *
+     */
     public const YUBICO_FORM_FACTOR_USB_C_KEYCHAIN = 0x03;
+    /**
+     *
+     */
     public const YUBICO_FORM_FACTOR_USB_C_NANO = 0x04;
+    /**
+     *
+     */
     public const YUBICO_FORM_FACTOR_USB_C_LIGHTNING = 0x05;
 
+    /**
+     *
+     */
     public const YUBICO_KEY_REFERENCES = [0xF9 => 'Attestation Key'];
 
+    /**
+     *
+     */
     public const OPENSSL_VERIFY_SUCCESS = 1;
+    /**
+     *
+     */
     public const OPENSSL_VERIFY_FAILURE = 0;
+    /**
+     *
+     */
     public const OPENSSL_VERIFY_ERROR = -1;
 
     /**
@@ -56,10 +132,25 @@ class YubikeyAttestationCertificate extends PivAttestationCertificate implements
      */
     protected OpenSSLCertificate $certificate;
 
+    /**
+     * @var string|null
+     */
     protected ?string $firmware_version = null;
+    /**
+     * @var int|float|null
+     */
     protected ?int $serial_number = null;
+    /**
+     * @var int|null
+     */
     protected ?int $pin_policy = null;
+    /**
+     * @var int|null
+     */
     protected ?int $touch_policy = null;
+    /**
+     * @var int|null
+     */
     protected ?int $form_factor = null;
 
     /**
@@ -196,6 +287,9 @@ class YubikeyAttestationCertificate extends PivAttestationCertificate implements
         }
     }
 
+    /**
+     * @return string
+     */
     public function __toString(): string
     {
         $ret = 'YubiKey Attestation Cert';
@@ -269,11 +363,17 @@ class YubikeyAttestationCertificate extends PivAttestationCertificate implements
     }
 
 
+    /**
+     * @return string|null
+     */
     public function getFirmwareVersion(): ?string
     {
         return $this->firmware_version;
     }
 
+    /**
+     * @return int|null
+     */
     public function getSerialNumber(): ?int
     {
         return $this->serial_number;

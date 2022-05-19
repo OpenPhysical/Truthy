@@ -8,8 +8,14 @@
  * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
  * details.
+ *
+ * PHP Version 8
+ * @author Mistial Developer <admin@mistial.dev>
+ * @category OpenPhysical
+ * @link https://github.com/OpenPhysical/Truthy
+ * @license https://www.gnu.org/licenses/agpl-3.0.en.html GNU Affero General Public License, Version 3
+ * @package Truthy
  */
-
 namespace OpenPhysical\Attestation;
 
 use OpenPhysical\Attestation\CA\YubicoCaCertificate;
@@ -19,6 +25,9 @@ use OpenPhysical\Attestation\Exception\CertificateValidationException;
 use OpenSSLCertificate;
 use Symfony\Component\Filesystem\Exception\FileNotFoundException;
 
+/**
+ *
+ */
 class Certificate implements IX509Certificate
 {
     /**
@@ -26,17 +35,32 @@ class Certificate implements IX509Certificate
      */
     protected OpenSSLCertificate $certificate;
 
+    /**
+     * @var string|null
+     */
     protected ?string $subject;
 
+    /**
+     * @var int
+     */
     protected int $certificateType = IX509Certificate::TYPE_UNKNOWN;
 
+    /**
+     * @var IX509Certificate
+     */
     protected IX509Certificate $issuer;
 
+    /**
+     * @return int
+     */
     public function getCertificateType(): int
     {
         return $this->certificateType;
     }
 
+    /**
+     * @return IX509Certificate
+     */
     public function getIssuer(): IX509Certificate
     {
         return $this->issuer;
@@ -120,6 +144,9 @@ class Certificate implements IX509Certificate
         return $ret;
     }
 
+    /**
+     * @return string|null
+     */
     public function getSubject(): ?string
     {
         return $this->subject;
