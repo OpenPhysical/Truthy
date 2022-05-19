@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of the Open Physical project.
+ * This file is part of the Open Physical project.  Copyright 2022, Open Physical Corporation.
  *
  * This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
  * Public License as published by the Free Software Foundation, version 3 of the License.
@@ -14,7 +14,8 @@ declare(strict_types=1);
 namespace OpenPhysical\Attestation\CA;
 
 use InvalidArgumentException;
-use OpenPhysical\PivChecker\Errors;
+use OpenPhysical\Attestation\Errors;
+use OpenPhysical\Attestation\Exception\CertificateParsingException;
 
 class YubicoCaCertificate extends CaCertificate implements ICaCertificate
 {
@@ -49,16 +50,18 @@ class YubicoCaCertificate extends CaCertificate implements ICaCertificate
      */
     public static function handlesSubject(string $name): bool
     {
-        $id = array_search($name, self::$yubikey_ca, true);
+        $id = in_array($name, self::$yubikey_ca, true);
         return !(false === $id);
     }
 
     /**
      * Load a Yubikey CA by certificate subject.
+     * @throws CertificateParsingException
      */
     public static function LoadByName(string $name): ICaCertificate
     {
         $id = array_search($name, self::$yubikey_ca, true);
+        var_dump($name);
         if (false === $id) {
             throw new InvalidArgumentException(Errors::ERROR_INVALID_NAME, Errors::ERRORNO_INVALID_NAME);
         }
@@ -67,19 +70,8 @@ class YubicoCaCertificate extends CaCertificate implements ICaCertificate
     }
 
     /**
-     * Load a Yubikey CA by ID.
-     */
-    public static function LoadById(int $id): ICaCertificate
-    {
-        if (isset(self::$yubikey_ca[$id])) {
-            return new YubicoCaCertificate($id);
-        }
-
-        throw new InvalidArgumentException(Errors::ERROR_INVALID_ID, Errors::ERRORNO_INVALID_ID);
-    }
-
-    /**
      * Instantiate a new YubiKey CA by ID.
+     * @throws CertificateParsingException
      */
     public function __construct(int $id)
     {
@@ -91,7 +83,7 @@ class YubicoCaCertificate extends CaCertificate implements ICaCertificate
 
         $ca_file = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . self::$yubikey_sca_certfiles[$id];
         $fp = fopen($ca_file, 'r');
-        $this->loadCertificateFromStream($fp);
+        $this->certificate = $this->loadCertificateFromStream($fp);
     }
 
     /**

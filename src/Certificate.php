@@ -1,7 +1,4 @@
 <?php
-
-/** @noinspection SubStrUsedAsStrPosInspection */
-
 /**
  * This file is part of the Open Physical project.
  *
@@ -18,16 +15,16 @@ namespace OpenPhysical\Attestation;
 use OpenPhysical\Attestation\CA\YubicoCaCertificate;
 use OpenPhysical\Attestation\Errors;
 use OpenPhysical\Attestation\Exception\CertificateParsingException;
-use OpenPhysical\PivChecker\Exception\CertificateValidationException;
+use OpenPhysical\Attestation\Exception\CertificateValidationException;
 use OpenSSLCertificate;
 use Symfony\Component\Filesystem\Exception\FileNotFoundException;
 
 class Certificate implements IX509Certificate
 {
     /**
-     * @var OpenSSLCertificate|string
+     * @var OpenSSLCertificate
      */
-    protected $certificate;
+    protected OpenSSLCertificate $certificate;
 
     protected ?string $subject;
 
@@ -46,9 +43,11 @@ class Certificate implements IX509Certificate
     }
 
     /**
-     * @return resource|OpenSSLCertificate
+     * @param $stream
+     * @return OpenSSLCertificate
+     * @throws CertificateParsingException
      */
-    public static function loadCertificateFromStream($stream)
+    public static function loadCertificateFromStream($stream): OpenSSLCertificate
     {
         if (!$stream) {
             throw new FileNotFoundException(Errors::ERROR_MISSING_CERTIFICATE, Errors::ERRORNO_MISSING_CERTIFICATE);
@@ -59,50 +58,41 @@ class Certificate implements IX509Certificate
         }
         $certificate = openssl_x509_read($cert_data);
         if (false === $certificate) {
-            return false;
+            throw new CertificateParsingException("Unable to load certificate form stream.");
         }
 
         return $certificate;
     }
 
     /**
+     * @return IX509Certificate
      * @throws CertificateParsingException
-     * @throws CertificateValidationException
-     *
+     * @throws Exception\CertificateValidationException
      * @var mixed
      */
-    public static function Factory($certificate): IX509Certificate
+    public static function Factory(OpenSSLCertificate $certificate, OpenSSLCertificate $intermediate): IX509Certificate
     {
         $parsed = self::parseCertificate($certificate);
 
         // Determine the certificate type.
-        if (!$parsed) {
-            throw new CertificateParsingException(Errors::ERROR_INVALID_CERTIFICATE, Errors::ERRORNO_INVALID_CERTIFICATE);
-        }
-
         // Look for the YubiKey PIV firmware extension (present in both F9 and 9A-9E certs)
         if (isset($parsed['extensions']) && isset($parsed['extensions'][YubikeyAttestationCertificate::YUBICO_OID_FIRMWARE_VERSION])) {
-            return new YubikeyAttestationCertificate($certificate);
+            return new YubikeyAttestationCertificate($certificate, $intermediate);
         }
 
-        return new YubicoCaCertificate(IX509Certificate::TYPE_ROOT_CA);
+        throw new \InvalidArgumentException("Invalid attestation certificate provided.");
     }
 
     /**
      * Parse a certificate, storing the certificate subject and issuer for use.
      *
+     * @return array
      * @throws CertificateParsingException
-     *
-     * @var OpenSSLCertificate|string|array
+     * @var OpenSSLCertificate
      */
-    public static function parseCertificate($certificate): array
+    public static function parseCertificate(OpenSSLCertificate $certificate): array
     {
-        // If it's already been through openssl_x509_parse, don't run it again.
-        if (!is_array($certificate)) {
-            $parsed = openssl_x509_parse($certificate);
-        } else {
-            $parsed = $certificate;
-        }
+        $parsed = openssl_x509_parse($certificate);
 
         // Ensure a valid certificate was specified
         if (false === $parsed) {

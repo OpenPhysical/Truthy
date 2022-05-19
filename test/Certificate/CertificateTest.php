@@ -1,9 +1,17 @@
 <?php
+/**
+ * This file is part of the Open Physical project.  Copyright 2022, Open Physical Corporation.
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
+ * Public License as published by the Free Software Foundation, version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+ * details.
+ */
+namespace Certificate;
 
-/** @noinspection SubStrUsedAsStrPosInspection */
-
-namespace OpenPhysical\Attestation\Test\Certificate;
-
+use DomainException;
 use OpenPhysical\Attestation\Certificate;
 use OpenPhysical\Attestation\IX509Certificate;
 use OpenPhysical\Attestation\PIV;
@@ -26,7 +34,7 @@ class CertificateTest extends TestCase
         /** @var SplFileInfo $file */
         foreach (new RecursiveIteratorIterator($directoryIterator) as $filename => $file) {
             // Only focus on files
-            if ($file->isDir() || 'crt' !== $file->getExtension()) {
+            if ($file->isDir() || 'crt' !== $file->getExtension() || str_ends_with($filename, "_f9.crt")) {
                 continue;
             }
 
@@ -54,7 +62,7 @@ class CertificateTest extends TestCase
                 $this->assertContains($key_reference, $valid_key_references, 'Invalid certificate filename.');
 
                 // Get the serial number from the filename
-                $serialNumber = $parts[2];
+                $serialNumber = (int)$parts[2];
                 $this->assertGreaterThan(0, $serialNumber, 'Invalid certificate filename.');
             }
         }
@@ -63,25 +71,37 @@ class CertificateTest extends TestCase
     /**
      * @depends testFilenames
      *
-     * @throws CertificateParsingException|CertificateValidationException
-     * @noinspection SubStrUsedAsStrPosInspection
+     * @throws CertificateParsingException|CertificateValidationException|DomainException
      */
     public function testFactory(): void
     {
         foreach ($this->certificate_files as $filename) {
-            $contents = file_get_contents($filename);
-            $parsed = openssl_x509_read($contents);
-            $certificate = Certificate::Factory($parsed);
+            $certificate_data = openssl_x509_read(file_get_contents($filename));
+            $attestation_cert = openssl_x509_read(file_get_contents(substr($filename, 0, strlen($filename) - 7). '_f9.crt'));
+            /** @var YubikeyAttestationCertificate $certificate */
+            $certificate = Certificate::Factory($certificate_data, $attestation_cert);
+            if (!($certificate instanceof YubikeyAttestationCertificate)) {
+                throw new DomainException("Yubikey certificate parsed as non-Yubikey certificate.");
+            }
 
             $basename = basename($filename, '.crt');
-            if ('yk_' === substr($basename, 0, 3)) {
-                [$yk_prefix, $attest_text, $serial_number, $slot] = explode('_', $basename);
-                // F9 slots are intermediate CAs
-                if ('f9' === $slot) {
-                    $this->assertEquals(IX509Certificate::TYPE_INTERMEDIATE_CA, $certificate->getCertificateType(), 'F9 certificate has wrong certificate type.');
+            if (str_starts_with($basename, 'yk_')) {
+                [$yk_prefix, $attest_text, $serial_number, $keyReference] = explode('_', $basename);
+                // F9 key references are intermediate CAs
+
+                // Attestation Certificate
+                $this->assertEquals(IX509Certificate::TYPE_END_CERTIFICATE, $certificate->getCertificateType(), 'Non-F9 certificate has wrong certificate type.');
+
+                // Ensure the serial number in the cert matches the filename
+                $this->assertEquals((int)$serial_number, $certificate->getSerialNumber());
+
+                // We don't know the exact serial number they changed firmware with, so estimate it.
+                if ((int)$serial_number > 15000000) {
+                    $expected_firmware = '5.4.2';
                 } else {
-                    $this->assertEquals(IX509Certificate::TYPE_END_CERTIFICATE, $certificate->getCertificateType(), 'Non-F9 certificate has wrong certificate type.');
+                    $expected_firmware = '5.2.4';
                 }
+                $this->assertEquals($expected_firmware, $certificate->getFirmwareVersion(), "Firmware in certificate is not the expected version.");
             }
         }
     }

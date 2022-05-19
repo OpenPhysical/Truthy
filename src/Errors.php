@@ -11,7 +11,7 @@
  */
 declare(strict_types=1);
 
-namespace OpenPhysical\PivChecker;
+namespace OpenPhysical\Attestation;
 
 class Errors
 {

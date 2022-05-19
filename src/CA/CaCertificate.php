@@ -16,6 +16,7 @@ namespace OpenPhysical\Attestation\CA;
 use OpenPhysical\Attestation\Certificate;
 use OpenPhysical\Attestation\IX509Certificate;
 use OpenPhysical\Attestation\Errors;
+use OpenSSLCertificate;
 use Symfony\Component\Filesystem\Exception\FileNotFoundException;
 
 class CaCertificate extends Certificate implements ICaCertificate
@@ -23,6 +24,8 @@ class CaCertificate extends Certificate implements ICaCertificate
     public ?string $subject;
 
     protected int $certificateType = IX509Certificate::TYPE_ROOT_CA;
+
+    protected OpenSSLCertificate $certificate;
 
     public function getSubject(): ?string
     {
@@ -37,5 +40,21 @@ class CaCertificate extends Certificate implements ICaCertificate
     public function getCertificateType(): int
     {
         return $this->certificateType;
+    }
+
+    /**
+     * @return OpenSSLCertificate
+     */
+    public function getCertificate(): OpenSSLCertificate
+    {
+        return $this->certificate;
+    }
+
+    /**
+     * @param OpenSSLCertificate $certificate
+     */
+    public function setCertificate(OpenSSLCertificate $certificate): void
+    {
+        $this->certificate = $certificate;
     }
 }

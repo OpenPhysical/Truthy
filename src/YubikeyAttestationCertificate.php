@@ -15,9 +15,9 @@ namespace OpenPhysical\Attestation;
 
 use DomainException;
 use InvalidArgumentException;
+use OpenPhysical\Attestation\CA\YubicoCaCertificate;
 use OpenPhysical\Attestation\Exception\CertificateParsingException;
 use OpenPhysical\Attestation\Exception\CertificateValidationException;
-use OpenPhysical\PivChecker\Errors;
 use OpenSSLCertificate;
 
 class YubikeyAttestationCertificate extends PivAttestationCertificate implements IX509Certificate
@@ -46,11 +46,15 @@ class YubikeyAttestationCertificate extends PivAttestationCertificate implements
 
     public const YUBICO_KEY_REFERENCES = [0xF9 => 'Attestation Key'];
 
+    public const OPENSSL_VERIFY_SUCCESS = 1;
+    public const OPENSSL_VERIFY_FAILURE = 0;
+    public const OPENSSL_VERIFY_ERROR = -1;
+
     /**
      * OpenSSL certificate representing the loaded attestation certificate.
      * @var OpenSSLCertificate
      */
-    protected $certificate;
+    protected OpenSSLCertificate $certificate;
 
     protected ?string $firmware_version = null;
     protected ?int $serial_number = null;
@@ -60,20 +64,26 @@ class YubikeyAttestationCertificate extends PivAttestationCertificate implements
 
     /**
      * Parse a YubiKey attestation certificate, extracting YubiKey extensions.
-     * @param $certificate OpenSSLCertificate
-     *
-     * @throws CertificateValidationException|CertificateParsingException
+     * @param $certificate OpenSSLCertificate   Attestation certificate to verify.
+     * @param OpenSSLCertificate $intermediate_certificate   Intermediate (F9) certificate for chain verification.
+     * @throws CertificateParsingException
+     * @throws CertificateValidationException
      * @noinspection PhpMissingParentConstructorInspection
      */
-    public function __construct(OpenSSLCertificate $certificate)
+    public function __construct(OpenSSLCertificate $certificate, OpenSSLCertificate $intermediate_certificate)
     {
-        $parsed = openssl_x509_parse($certificate);
-        if (!($parsed) || !isset($parsed['extensions'])) {
+        $parsed_cert = openssl_x509_parse($certificate);
+        if (!($parsed_cert) || !isset($parsed_cert['extensions'])) {
+            throw new CertificateValidationException(Errors::ERROR_CERTIFICATE_MISSING_EXTENSIONS, Errors::ERRORNO_CERTIFICATE_MISSING_EXTENSIONS);
+        }
+
+        $parsed_intermediate = openssl_x509_parse($intermediate_certificate);
+        if (!($parsed_intermediate) || !isset($parsed_intermediate['extensions'])) {
             throw new CertificateValidationException(Errors::ERROR_CERTIFICATE_MISSING_EXTENSIONS, Errors::ERRORNO_CERTIFICATE_MISSING_EXTENSIONS);
         }
 
         // Require at least one Yubikey Extension to succeed
-        $extensions = $parsed['extensions'];
+        $extensions = $parsed_cert['extensions'];
         $found_yubikey_extension = false;
         foreach ($extensions as $key => $value) {
             if (str_starts_with($key, self::YUBICO_OID_PIV_ROOT)) {
@@ -85,6 +95,22 @@ class YubikeyAttestationCertificate extends PivAttestationCertificate implements
         // If it has no Yubikey extensions, it's fundamentally not a YubiKey certificate.
         if (!$found_yubikey_extension) {
             throw new CertificateValidationException(Errors::ERROR_CERTIFICATE_MISSING_YUBIKEY_EXTENSIONS, Errors::ERRORNO_CERTIFICATE_MISSING_YUBIKEY_EXTENSIONS);
+        }
+
+        // Verify the certificate chain
+        $issuer_name = $parsed_cert['issuer']['CN'];
+        $intermediate_subject = $parsed_intermediate['subject']['CN'];
+        if ($issuer_name != $intermediate_subject) {
+            throw new InvalidArgumentException("Intermediate certificate did not issue this attestation certificate.");
+        }
+        $root_name = 'CN = ' . $parsed_intermediate['issuer']['CN'];
+        $root_certificate = YubicoCaCertificate::LoadByName($root_name)->getCertificate();
+
+        // Verify the intermediate chains to the root, and that the signature is valid on the certificate.
+        if (self::OPENSSL_VERIFY_SUCCESS != openssl_x509_verify($intermediate_certificate, $root_certificate)) {
+            throw new CertificateValidationException("Intermediate CA was not generated properly by the root CA it should be.");
+        } elseif (self::OPENSSL_VERIFY_SUCCESS != openssl_x509_verify($certificate, $intermediate_certificate)) {
+            throw new CertificateValidationException("Attestation certificate was not signed properly by the intermediate CA.");
         }
 
         // Handle the firmware version extension
@@ -146,8 +172,8 @@ class YubikeyAttestationCertificate extends PivAttestationCertificate implements
         }
 
         // Key Reference
-        if (isset($parsed['subject'], $parsed['subject']['CN'])) {
-            $cn_words = explode(' ', $parsed['subject']['CN']);
+        if (isset($parsed_cert['subject'], $parsed_cert['subject']['CN'])) {
+            $cn_words = explode(' ', $parsed_cert['subject']['CN']);
             $word_count = count($cn_words);
 
             // We are looking for a slot number as the last word
@@ -160,7 +186,7 @@ class YubikeyAttestationCertificate extends PivAttestationCertificate implements
                 $this->certificateType = IX509Certificate::TYPE_END_CERTIFICATE;
             } else {
                 // F9 slots don't have a slot in the CN
-                if ('Yubico PIV Attestation' === $parsed['subject']['CN']) {
+                if ('Yubico PIV Attestation' === $parsed_cert['subject']['CN']) {
                     $this->certificateType = IX509Certificate::TYPE_INTERMEDIATE_CA;
                     $this->keyReference = 0xF9;
                 } else {

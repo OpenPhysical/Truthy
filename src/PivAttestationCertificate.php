@@ -38,7 +38,7 @@ class PivAttestationCertificate extends Certificate implements IX509Certificate
      * OpenSSL Certificate object containing the loaded attestation certificate.
      * @var OpenSSLCertificate attestation certificate
      */
-    protected $certificate;
+    protected OpenSSLCertificate $certificate;
 
     /**
      * @return OpenSSLCertificate
