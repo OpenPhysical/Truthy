@@ -20,8 +20,7 @@ declare(strict_types=1);
 
 namespace OpenPhysical\Attestation;
 
-use OpenPhysical\Attestation\CA\YubicoCaCertificate;
-use OpenPhysical\Attestation\Errors;
+use InvalidArgumentException;
 use OpenPhysical\Attestation\Exception\CertificateParsingException;
 use OpenPhysical\Attestation\Exception\CertificateValidationException;
 use OpenSSLCertificate;
@@ -33,26 +32,36 @@ use Symfony\Component\Filesystem\Exception\FileNotFoundException;
 class Certificate implements IX509Certificate
 {
     /**
+     * Underlying x509 certificate for this Certificate object
+     *
      * @var OpenSSLCertificate
      */
     protected OpenSSLCertificate $certificate;
 
     /**
+     * Subject of the certificate
+     *
      * @var string|null
      */
     protected ?string $subject;
 
     /**
+     * Type of the certificate
+     *
      * @var int
      */
     protected int $certificateType = IX509Certificate::TYPE_UNKNOWN;
 
     /**
+     * Issuer of the certificate
+     *
      * @var IX509Certificate
      */
     protected IX509Certificate $issuer;
 
     /**
+     * Get the type of the certificate
+     *
      * @return int
      */
     public function getCertificateType(): int
@@ -61,6 +70,8 @@ class Certificate implements IX509Certificate
     }
 
     /**
+     * Get the issuer of this Certificate
+     *
      * @return IX509Certificate
      */
     public function getIssuer(): IX509Certificate
@@ -69,6 +80,8 @@ class Certificate implements IX509Certificate
     }
 
     /**
+     * Load a certificate from a I/O Stream.
+     *
      * @param $stream
      * @return OpenSSLCertificate
      * @throws CertificateParsingException
@@ -84,17 +97,20 @@ class Certificate implements IX509Certificate
         }
         $certificate = openssl_x509_read($cert_data);
         if (false === $certificate) {
-            throw new CertificateParsingException("Unable to load certificate form stream.");
+            throw new CertificateParsingException(Errors::ERROR_CANT_LOAD_CERT_FROM_STREAM, Errors::ERRNO_CANT_LOAD_CERT_FROM_STREAM);
         }
 
         return $certificate;
     }
 
     /**
+     * Automatically create a certificate object of the right type for a given certificate and intermediate certificate.
+     *
+     * @param OpenSSLCertificate $certificate
+     * @param OpenSSLCertificate $intermediate
      * @return IX509Certificate
      * @throws CertificateParsingException
-     * @throws Exception\CertificateValidationException
-     * @var mixed
+     * @throws CertificateValidationException
      */
     public static function Factory(OpenSSLCertificate $certificate, OpenSSLCertificate $intermediate): IX509Certificate
     {
@@ -106,7 +122,7 @@ class Certificate implements IX509Certificate
             return new YubikeyAttestationCertificate($certificate, $intermediate);
         }
 
-        throw new \InvalidArgumentException("Invalid attestation certificate provided.");
+        throw new InvalidArgumentException(Errors::ERROR_INVALID_ATTESTATION_CERT, Errors::ERRNO_INVALID_ATTESTATION_CERT);
     }
 
     /**
@@ -147,6 +163,8 @@ class Certificate implements IX509Certificate
     }
 
     /**
+     * Returns the subject of a Certificate.
+     *
      * @return string|null
      */
     public function getSubject(): ?string

@@ -20,6 +20,7 @@ namespace Certificate;
 
 use DomainException;
 use OpenPhysical\Attestation\Certificate;
+use OpenPhysical\Attestation\Errors;
 use OpenPhysical\Attestation\IX509Certificate;
 use OpenPhysical\Attestation\PIV;
 use OpenPhysical\Attestation\YubikeyAttestationCertificate;
@@ -96,9 +97,7 @@ class CertificateTest extends TestCase
             $attestation_cert = openssl_x509_read(file_get_contents(substr($filename, 0, strlen($filename) - 7). '_f9.crt'));
             /** @var YubikeyAttestationCertificate $certificate */
             $certificate = Certificate::Factory($certificate_data, $attestation_cert);
-            if (!($certificate instanceof YubikeyAttestationCertificate)) {
-                throw new DomainException("Yubikey certificate parsed as non-Yubikey certificate.");
-            }
+            $this->assertInstanceOf('YubikeyAttestationCertificate', $certificate, Errors::ERROR_CERTIFICATE_NOT_YUBIKEY);
 
             $basename = basename($filename, '.crt');
             if (str_starts_with($basename, 'yk_')) {
